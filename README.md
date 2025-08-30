@@ -5,7 +5,7 @@
 
 <div id="ref-multivarse">
 
-Younghoon Kim and Vladas Pipiras. 2025.
+Younghoon Kim, Zachary F. Fisher, and Vladas Pipiras. 2025.
 “Joint modeling and inference of multiple-subject high-dimensional sparse vector autoregressive models.” *In progress*.
 
 <div id="ref-multivar2">
