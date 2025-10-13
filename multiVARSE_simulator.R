@@ -1,88 +1,103 @@
 multiVARSE_simulator <- function(K,d,p,TT,s0,sk,eps=1){
   
   # ---------------------------------------------------- #
-  # Assigning the entries/values of the common/unique components
+  # Assigning the entries/values of the common/unique components:
   prop.comm <- s0
   prop.uniq <- sk
+  
+  # these should be list types.
   num.comm <- round(d^2*p*prop.comm)
-  num.uniq <- round(d^2*p*prop.uniq)
+  num.uniq <- num.tot <- list()
+  for (k in 1:K){
+    num.uniq[[k]] <- round(d^2*p*prop.uniq[k])
+    num.tot[[k]] <-  num.comm + num.uniq[[k]]
+  }
   
-  # Currently, only the case when overlapping does not happen.
-  num.tot <- num.comm + num.uniq
-  
-  idx.comm <- sample(seq(1:(d^2*p)),num.comm,replace=FALSE)
-  entry.comm <- c(runif(num.comm,min=0.1,max=0.9),vector("numeric",length=(d^2*p-num.comm)))
-  entry.comm <- entry.comm[order( c( idx.comm, seq(1:(d^2*p))[-c(idx.comm)] ) )]
-  
-  idx.uniq <- array(NA,dim=c(num.uniq,K))
+  # idx.uniq <- array(NA,dim=c(num.uniq,K))
+  idx.uniq <- list()
   entry.uniq <- array(NA,dim=c((d^2*p),K))
   entry.total <- array(NA,dim=c((d^2*p),K))
   
-  idx_cumm <- idx.comm
-  for (k in 1:K){
-    idx.uniq[,k] <- sample(seq(1:(d^2*p))[-idx_cumm],num.uniq,replace=FALSE)
-    entry.uniq[,k] <- c(runif(num.uniq,min=0.1,max=0.9),vector("numeric",length=d^2*p-num.uniq))
-    entry.uniq[,k] <- entry.uniq[order( c( idx.uniq[,k], seq(1:(d^2*p))[-c(idx.uniq[,k])] ) ),k]
-    entry.total[,k] <- entry.comm + entry.uniq[,k]
+  # ---------------------------------------------------- #
+  # Picking up common entries + unique entries for the first subject:
+  test.eigen <- 1
+  while ( test.eigen > 0.95 ){
+    # ---------------------------------------------------- #
+    # Picking up common entries:
+    idx.comm <- sample(seq(1:(d^2*p)),num.comm,replace=FALSE)
+    entry.comm <- c(runif(num.comm,min=0.1,max=0.9),vector("numeric",length=(d^2*p-num.comm)))
+    entry.comm <- entry.comm[order( c( idx.comm, seq(1:(d^2*p))[-c(idx.comm)] ) )]
+    idx_cumm <- idx.comm
     
-    idx_cumm <- c(idx_cumm,idx.uniq[,k])
+    # ---------------------------------------------------- #
+    # Picking up unique entries for the first subject:
+    idx.uniq[[1]] <- sample(seq(1:(d^2*p))[-idx_cumm],num.uniq[[1]],replace=FALSE)
+    entry.uniq[,1] <- c(runif(num.uniq[[1]],min=0.1,max=0.9),
+                        vector("numeric",length=d^2*p-num.uniq[[1]]))
+    entry.uniq[,1] <- entry.uniq[order( c( idx.uniq[[1]], 
+                                           seq(1:(d^2*p))[-c(idx.uniq[[1]])] ) ),1]
+    entry.total[,1] <- entry.comm + entry.uniq[,1]
+    idx_cumm <- c(idx_cumm,idx.uniq[[1]])
+    
+    eig.mat.comm <- companion_form_phi(array(entry.comm,dim=c(d,d,p)),d,p)
+    
+    eig.mat <- eig.mat.comm + companion_form_phi(array(entry.uniq[,1],dim=c(d,d,p)),d,p)
+    test.eigen <- max(abs(eigen(eig.mat)$values))
   }
+  cat("1 th subject done\n")
   
   # ---------------------------------------------------- #
-  # Scale down for all subjects to be stable
-  test.mat <- array(entry.total,dim=c(d*p,d*p,K))
-  test.eigen <- vector("numeric",K)
-  for (k in 1:K){
-    test.mat[,,k] <- companion_form_phi(array(entry.total[,k],dim=c(d,d,p)),d,p)
-    test.eigen[k] <- max(abs(eigen(test.mat[,,k])$values))
-  }
-  test.eigen.max <- max(test.eigen)
-  decay.rate <- 1
-  if( test.eigen.max > 0.95 ){
-    
-    decay.rate <- 0.9
-    while ( test.eigen.max > 0.95 ){
-      eig.mat.comm <- companion_form_phi(decay.rate*array(entry.comm,dim=c(d,d,p)),d,p)
-      eig.mat.uniq <- array(NA,dim=c(d*p,d*p,K))
-      eig.mat.tot <- array(NA,dim=c(d*p,d*p,K))
-      for (k in 1:K){
-        eig.mat.uniq[,,k] <- companion_form_phi(decay.rate*array(entry.uniq[,k],dim=c(d,d,p)),d,p)
-        eig.mat.tot[,,k] <- eig.mat.comm + eig.mat.uniq[,,k]
-      }
+  # Picking up unique entries for the rest of the subjects:
+  for (k in 2:K){
+    test.eigen <- 1
+    while ( test.eigen > 0.95 ){
+      # ---------------------------------------------------- #
+      # Picking up unique entries:
+      idx.uniq[[k]] <- sample(seq(1:(d^2*p))[-idx_cumm],num.uniq[[k]],replace=FALSE)
+      entry.uniq[,k] <- c(runif(num.uniq[[k]],min=0.1,max=0.9),
+                          vector("numeric",length=d^2*p-num.uniq[[k]]))
+      entry.uniq[,k] <- entry.uniq[order( c( idx.uniq[[k]], 
+                                             seq(1:(d^2*p))[-c(idx.uniq[[k]])] ) ),k]
+      entry.total[,k] <- entry.comm + entry.uniq[,k]
+      idx_cumm_tmp <- c(idx_cumm,idx.uniq[[k]])
       
-      decay.rate <- decay.rate*0.9
-      for (k in 1:K){
-        test.eigen[k] <- max(abs(eigen(eig.mat.tot[,,k])$values))
-      }
-      test.eigen.max <- max(test.eigen)
+      eig.mat <- eig.mat.comm + companion_form_phi(array(entry.uniq[,k],dim=c(d,d,p)),d,p)
+      test.eigen <- max(abs(eigen(eig.mat)$values))
     }
-  }
-  
-  alpha_0 <- entry.comm*decay.rate
-  A_0 <- array(unlist(lapply(1:p,
-                             function(x){t(array(alpha_0,
-                                                 dim=c(d,d,p))[,,x])})),
-               dim=c(d,d,p))
-  
-  A_k <- list(); Phi_k <- list()
-  alpha_k <- list(); beta_k <- list()
-  for (k in 1:K){
-    alpha_k[[k]] <- entry.uniq[,k]*decay.rate
-    beta_k[[k]] <- alpha_0 + alpha_k[[k]]
-    
-    A_k[[k]] <- array(unlist(lapply(1:p,
-                                    function(x){t(array(alpha_k[[k]],
-                                                        dim=c(d,d,p))[,,x])})),
-                      dim=c(d,d,p))
-    Phi_k[[k]] <- A_0 + A_k[[k]]
+    cat(k,"th subject done\n")
+    idx_cumm <- idx_cumm_tmp
   }
   
   # ---------------------------------------------------- #
-  # Generate sample paths
+  # Define alpha0, alpha_k, and beta_k:
+  alpha_k <- list(); beta_k <- list()
+  
+  alpha_0 <- entry.comm
+  for (k in 1:K){
+    alpha_k[[k]] <- entry.uniq[,k]
+    beta_k[[k]] <- alpha_0 + alpha_k[[k]]
+  }
+  
+  # ---------------------------------------------------- #
+  # Define A_0,A_k, and Phi_k:
+  A_k <- list(); Phi_k <- list()
+  
+  A_0 <- matrix(alpha_0,(d*p),d,byrow=FALSE)
+  for (k in 1:K){
+    A_k[[k]] <- matrix(alpha_k[[k]],(d*p),d,byrow=FALSE)
+    Phi_tmp <- c()
+    for (h in 1:p){
+      Phi_tmp <- cbind(Phi_tmp,t(A_k[[k]][((h-1)*d+1):(h*d),] + A_0[((h-1)*d+1):(h*d),]))
+    }
+    Phi_k[[k]] <- array(Phi_tmp,c(d,d,p))
+  }
+  
+  # ---------------------------------------------------- #
+  # Generate sample paths:
   sigma_eps <- diag(eps,d)
   
   Burn <- 500
-  X_tk <- list()
+  X_t <- list()
   for (k in 1:K){
     E_tk <- t(rmvnorm((TT[k]+Burn), mean = rep(0,d), sigma = sigma_eps, method="eigen"))
     
@@ -91,14 +106,14 @@ multiVARSE_simulator <- function(K,d,p,TT,s0,sk,eps=1){
       X_tmp[,t] <- rowSums(sapply(c(1:p),
                                   function(x){rowSums(Phi_k[[k]][,,x]%*%X_tmp[,(t-x)])})) + E_tk[,t]
     }
-    X_tk[[k]] <- X_tmp[,(Burn+1):(TT[k]+Burn)]
+    X_t[[k]] <- X_tmp[,(Burn+1):(TT[k]+Burn)]
   }
   
   # ---------------------------------------------------- #
   # Return output:
-  output <- list(Phi_k = Phi_k, A_0 = A_0, A_k = A_k,
-                 beta_k = beta_k, alpha_0 = alpha_0, alpha_k = alpha_k,
-                 x_tk = X_tk)
+  output <- list(beta_k = beta_k, alpha_0 = alpha_0, alpha_k = alpha_k,
+                 Phi_k = Phi_k, A_0 = A_0, A_k = A_k,
+                 x_t = X_t)
   return(output)
 }
 
@@ -127,30 +142,3 @@ companion_form_phi = function(Psi,d,p){
   return(comp_Psi)
 }
 
-
-
-
-# if (type == "F2022"){
-#   
-# }else if (type == "F2024"){
-#   if (level == 1){
-#     pi_I <- 1; pi_P <- 1/4
-#   }else if (level == 2){
-#     pi_I <- c(1,2/3,1/3); pi_P <- c(1/5,1/10,1/20);
-#   }else if (level == 3){
-#     pi_I <- c(1/3,2/3,1); pi_P <- c(1/5,1/10,1/20);
-#   }
-#   
-#   idx <- 1:(d^2*p)
-#   arr_list <- list(); subj_list <- list()
-#   for (iter in 1:length(pi_P)){
-#     idx_chosen <- sort(sample(idx,size=(d^2*p)*pi_P[iter],replace=FALSE))
-#     arr_list[[iter]] <- mapply(x=1:length(idx_chosen),
-#                                function(x){convert_index(idx_chosen[x],d,p)})
-#     subj_list[[iter]] <- sort(sample(1:K,size=K*pi_I[iter],replace=FALSE))
-#     
-#     idx <- setdiff(idx,idx_chosen)
-#   }
-#   
-#   
-# }
