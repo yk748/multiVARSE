@@ -6,7 +6,7 @@ The multiple-subject vector autoregressive (multi-VAR) model is a VAR-based high
 <div id="ref-multivarse">
 
 Younghoon Kim, Zachary F. Fisher, and Vladas Pipiras. 2025.
-“Joint modeling and inference of multiple-subject high-dimensional sparse vector autoregressive models.” *In progress*.
+“Joint modeling and inference of multiple-subject high-dimensional sparse vector autoregressive models.” *Preprint*.
 
 <div id="ref-multivar2">
 
