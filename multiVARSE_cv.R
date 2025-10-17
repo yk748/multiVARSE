@@ -88,7 +88,7 @@ multiVARSE_cv <- function(X_t,debias,opt,K,d,p,TT,thres_type,nfold=5,
     for (i in 1:grid_eta){
       for (j in 1:grid_thres_0){
         for (m in 1:grid_thres_k){
-          identified_ijm <- multiVARSE_identifier2(debiased_train,
+          identified_ijm <- multiVARSE_identifier(debiased_train,
                                                   eta_grid[i],thres_0_grid[j],thres_k_grid[,m],
                                                   thres_type=thres_type,
                                                   K,d,p,TT_train_vec)
