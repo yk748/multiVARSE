@@ -11,7 +11,7 @@ Younghoon Kim, Zachary F. Fisher, and Vladas Pipiras. 2025.
 <div id="ref-multivar2">
 
 Zachary F Fisher, Younghoon Kim, Vladas Pipiras, Christopher Crawford, Daniel J Petrie, Michael D Hunter, Charles F Geier. 2024.
-“Structured Estimation of Heterogeneous Time Series.” *Psychometrika* 59 (6): 1270-1289.
+“Structured Estimation of Heterogeneous Time Series.” *Multivariate Behavioral Research* 59 (6): 1270-1289.
 <https://www.tandfonline.com/doi/abs/10.1080/00273171.2023.2283837>.
 
 <div id="ref-multivar1">
