@@ -1,4 +1,4 @@
-# multi-VARSE
+# multiVARSE
 
 R code accompanying **“Joint modeling and inference of multiple-subject high-dimensional sparse vector autoregressive models”** by Younghoon Kim, Zachary F. Fisher, and Vladas Pipiras ([preprint, 2025](https://arxiv.org/abs/2510.14044)).
 
