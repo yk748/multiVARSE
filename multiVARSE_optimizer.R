@@ -1,3 +1,7 @@
+###################################################################################
+# The following is the optimizer used in the estimation.
+# The corresponding explanation is included in Section 3.1.
+###################################################################################
 multiVARSE_optimizer <- function(X_t,d,p,TT){
   
   # ---------------------------------------------------- #
@@ -19,8 +23,9 @@ multiVARSE_optimizer <- function(X_t,d,p,TT){
   
   # ---------------------------------------------------- #
   # Fit the model:
-  cv.opt <- cv.glmnet(x=ZZ,y=vec_YY,intercept=FALSE,alpha=1)
-  lambda <- cv.opt$lambda.min
+  # cv.opt <- cv.glmnet(x=ZZ,y=vec_YY,intercept=FALSE,alpha=1)
+  # lambda <- cv.opt$lambda.min
+  lambda <- sqrt(log(d)/TT)
   opt <- glmnet(x=ZZ,y=vec_YY,intercept=FALSE,alpha=1,lambda=lambda)
   beta_hat <- opt$beta
   rownames(beta_hat) <- NULL

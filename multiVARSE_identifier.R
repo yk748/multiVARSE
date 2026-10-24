@@ -1,4 +1,8 @@
-multiVARSE_identifier <- function(debias,eta,thres_0,thres_k,thres_type,K,d,p,TT){
+###################################################################################
+# The following is the identifier used in the estimation.
+# The corresponding explanation is included in Section 3.1.
+###################################################################################
+multiVARSE_identifier <- function(debias,agg_type,eta,thres_0,thres_k,thres_type,K,d,p,TT){
   
   # ------------------------------------------- #
   # Find alpha_0_tilde and alpha_0_hat:
@@ -7,11 +11,22 @@ multiVARSE_identifier <- function(debias,eta,thres_0,thres_k,thres_type,K,d,p,TT
   alpha_0_hat <- alpha_0_tilde <- vector("numeric",d^2*p)
   for (j in 1:(d^2*p)) {
     beta_tilde_j <- beta_mat[j,]
-    
     grid <- seq(min(beta_tilde_j), max(beta_tilde_j), by = 0.01)
-    red_loss <- colSums(outer(beta_tilde_j, grid, function(b,g) red_ftn(b-g, eta)))
-    alpha_0_tilde[j] <- grid[which.min(red_loss)]
-    ind_contribute[[j]] <- which(abs(beta_tilde_j - alpha_0_tilde[j]) <= eta)
+    
+    if (agg_type == "redescending"){
+      loss_ftn <- colSums(outer(beta_tilde_j, grid, function(b,g) red_ftn(b-g, eta)))
+      ind_contribute[[j]] <- which(abs(beta_tilde_j - alpha_0_tilde[j]) <= eta)
+    }else if (agg_type == "mean"){
+      loss_ftn <- colSums(outer(beta_tilde_j, grid, function(b,g) (b-g)^2 + eta*g^2))
+      ind_contribute[[j]] <- c(1:K)
+    }else if (agg_type == "med"){
+      loss_ftn <- colSums(outer(beta_tilde_j, grid, function(b,g) abs(b-g) + eta*abs(g)))
+      ind_contribute[[j]] <- c(1:K)
+    }else if (agg_type == "mixed"){
+      loss_ftn <- colSums(outer(beta_tilde_j, grid, function(b,g) abs(b-g) + eta*(b-g)^2))
+      ind_contribute[[j]] <- c(1:K)
+    }
+    alpha_0_tilde[j] <- grid[which.min(loss_ftn)]
     
     # thresholding
     if (thres_type == "hard") {
@@ -43,7 +58,7 @@ multiVARSE_identifier <- function(debias,eta,thres_0,thres_k,thres_type,K,d,p,TT
                  alpha_k_hat = alpha_k_hat,
                  thres_0 = thres_0, 
                  thres_k = thres_k)
-  return(output)
+  output
 }
 
 #################################################################################
@@ -58,10 +73,6 @@ soft_thres <- function(val,thres){
 
 #################################################################################
 # Get objective:
-objective_function <- function(c, theta, eta) {
-  return(sum(sapply(theta - c, red_ftn, eta = eta)))
-}
-
 red_ftn <- function(x, eta) {
   pmin(x^2, eta^2)
 }

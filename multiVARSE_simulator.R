@@ -1,4 +1,8 @@
-multiVARSE_simulator <- function(K,d,p,TT,s0,sk,eps=1){
+###################################################################################
+# The following is the code for generating synthetic data used in 
+# the results in Section 5 and Section S.4.2 in the Supplementary Material.
+###################################################################################
+multiVARSE_simulator <- function(K,d,p,TT,s0,sk,eps=0.5){
   
   # ---------------------------------------------------- #
   # Assigning the entries/values of the common/unique components:
@@ -43,6 +47,7 @@ multiVARSE_simulator <- function(K,d,p,TT,s0,sk,eps=1){
     
     eig.mat <- eig.mat.comm + companion_form_phi(array(entry.uniq[,1],dim=c(d,d,p)),d,p)
     test.eigen <- max(abs(eigen(eig.mat)$values))
+    cat(test.eigen,"\n")
   }
   cat("1 th subject done\n")
   
@@ -63,6 +68,7 @@ multiVARSE_simulator <- function(K,d,p,TT,s0,sk,eps=1){
       
       eig.mat <- eig.mat.comm + companion_form_phi(array(entry.uniq[,k],dim=c(d,d,p)),d,p)
       test.eigen <- max(abs(eigen(eig.mat)$values))
+      cat(test.eigen,"\n")
     }
     cat(k,"th subject done\n")
     idx_cumm <- idx_cumm_tmp

@@ -1,3 +1,7 @@
+###################################################################################
+# The following is the debiasor used in the estimation.
+# The corresponding explanation is included in Section 3.1.
+###################################################################################
 multiVARSE_debiasor <- function(beta_hat,X_t,d,p,TT){
   
   # ------------------------------------------- #
@@ -61,8 +65,9 @@ nodewise_regression <- function(XX,d,p,TT){
   for (j in 1:d){
     XX_mj <- XX[,-j]
     XX_j <- XX[,j]
-    cv.opt <- cv.glmnet(x=XX_mj,y=XX_j,intercept=FALSE,alpha=1,standardize=FALSE)
-    lambda <- cv.opt$lambda.min
+    # cv.opt <- cv.glmnet(x=XX_mj,y=XX_j,intercept=FALSE,alpha=1,standardize=FALSE)
+    # lambda <- cv.opt$lambda.min
+    lambda <- sqrt(log(d)/TT)
     opt <- glmnet(x=XX_mj,y=XX_j,intercept=FALSE,alpha=1,lambda=lambda,standardize=FALSE)
     
     Gamma_hat[-j,j] <- -as.vector(opt$beta)

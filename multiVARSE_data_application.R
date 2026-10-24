@@ -1,3 +1,7 @@
+###################################################################################
+# The following is the data application procedure in Section 6.
+# The final result is diplayed in Figure 3 in Section 6.2.
+###################################################################################
 rm(list=ls())
 
 library("mvtnorm")
@@ -14,11 +18,135 @@ source("multiVARSE_optimizer.R")
 source("multiVARSE_debiasor.R")
 source("multiVARSE_cv.R")
 source("multiVARSE_identifier.R")
-source("multiVARSE_tester.R")
-source("multiVARSE_test_evaluator.R")
 source("multiVARSE_benchmark.R")
+source("multiVARSE_tester.R")
 
-#####################################################################################
+###################################################################################
+# The following is for data configuration & preprocessing
+# The corresponding codes are commentized as the processed data is available 
+# on the author's GitHub.
+###################################################################################
+# # --------------------------------------------------------------- #
+# # Workbench directory:
+# library(ciftiTools)
+# ciftiTools.setOption("wb_path", "C:/workbench/bin_windows64/wb_command.exe")
+# 
+# subj <- c(100307, 117122, 162329, 182739, 192540,
+#           194140, 199150, 255639, 499566, 729557,
+#           826353, 901139)
+# 
+# yeo17_names <- c(
+#   "Visual_A", "Visual_B", "Somatomotor_A", "Somatomotor_B", 
+#   "DorsalAttention_A", "DorsalAttention_B", "VentralAttention_A", "VentralAttention_B", 
+#   "Limbic_A", "Limbic_B", "Frontoparietal_A", "Frontoparietal_B", 
+#   "Frontoparietal_C", "DefaultMode_A", "DefaultMode_B", "DefaultMode_C", "DefaultMode_D"
+# )
+# 
+# # --------------------------------------------------------------- #
+# # Prepare Atlas & Network Mapping
+# atlas_file  <- "Schaefer2018_400Parcels_17Networks_order.dlabel.nii"   
+# atlas_cifti <- read_cifti(atlas_file)
+# 
+# # Safe vector conversion using as.matrix()
+# atlas_labels_vec <- as.numeric(as.matrix(atlas_cifti))
+# 
+# # Robust Manual Mapping for Schaefer 400 (17 Networks)
+# # Official number of parcels assigned to each of the 17 networks per hemisphere:
+# parcels_per_net_LH <- c(9, 22, 14, 20, 12, 17, 10, 12, 4, 4, 11, 14, 5, 14, 19, 7, 6)
+# parcels_per_net_RH <- c(11, 21, 11, 23, 13, 14, 11, 10, 4, 5, 11, 14, 5, 16, 21, 6, 5)
+# 
+# lh_mapping <- rep(yeo17_names, times = parcels_per_net_LH)
+# rh_mapping <- rep(yeo17_names, times = parcels_per_net_RH)
+# 
+# # Combine Left and Right hemispheres sequentially (Total 400 strings)
+# parcel_network_mapping <- c(lh_mapping, rh_mapping)
+# 
+# # --------------------------------------------------------------- #
+# # Extraction Function
+# extract_roi_ts_cifti <- function(fmri_matrix, atlas_labels_vec) {
+#   # Unique spatial parcel IDs present in the file (ignoring background/0)
+#   roi_ids <- unique(atlas_labels_vec)
+#   roi_ids <- roi_ids[roi_ids != 0 & !is.na(roi_ids)]
+#   roi_ids <- sort(roi_ids) # Ensure order aligns to 1:400
+#   
+#   nTime <- ncol(fmri_matrix) 
+#   nROIs  <- length(roi_ids)
+#   
+#   roi_ts <- matrix(NA, nrow = nTime, ncol = nROIs)
+#   
+#   for (i in seq_along(roi_ids)) {
+#     roi <- roi_ids[i]
+#     idx <- which(atlas_labels_vec == roi)
+#     if(length(idx) == 0) next
+#     
+#     # Rows are space, Columns are time in ciftiTools matrix output
+#     roi_ts[, i] <- colMeans(fmri_matrix[idx, , drop = FALSE], na.rm = TRUE)
+#   }
+#   
+#   colnames(roi_ts) <- paste0("ROI_", roi_ids)
+#   return(roi_ts)
+# }
+# 
+# # --------------------------------------------------------------- #
+# # Main Subject Loop (Fixed with Guardrails)
+# for (i in 1:length(subj)){
+#   
+#   # File paths
+#   phase1_file <- paste0(subj[i],"_3T_tfMRI_EMOTION_preproc/",subj[i],"/MNINonLinear/Results/tfMRI_EMOTION_LR/tfMRI_EMOTION_LR_Atlas_MSMAll.dtseries.nii")
+#   phase2_file <- paste0(subj[i],"_3T_tfMRI_EMOTION_preproc/",subj[i],"/MNINonLinear/Results/tfMRI_EMOTION_RL/tfMRI_EMOTION_RL_Atlas_MSMAll.dtseries.nii")
+#   
+#   # Skip if files don't exist
+#   if(!file.exists(phase1_file) || !file.exists(phase2_file)) {
+#     cat("Missing files for subject", subj[i], "- skipping.\n")
+#     next
+#   }
+#   
+#   # Load and cleanly matrix-convert fMRI data
+#   phase1_matrix <- as.matrix(read_cifti(phase1_file))
+#   phase2_matrix <- as.matrix(read_cifti(phase2_file))  
+#   
+#   # Extract individual parcel time series (Time x ROIs Matrix)
+#   roi_ts_phase1 <- extract_roi_ts_cifti(phase1_matrix, atlas_labels_vec)
+#   roi_ts_phase2 <- extract_roi_ts_cifti(phase2_matrix, atlas_labels_vec)
+#   
+#   # Concatenate LR and RL runs chronologically 
+#   roi_ts_combined <- rbind(roi_ts_phase1, roi_ts_phase2) 
+#   
+#   # Aggregate the Parcels into the 17 Yeo Networks
+#   network_ts <- matrix(NA, nrow = nrow(roi_ts_combined), ncol = length(yeo17_names))
+#   colnames(network_ts) <- yeo17_names
+#   
+#   for (n in 1:length(yeo17_names)) {
+#     net <- yeo17_names[n]
+#     
+#     # 1. Find which generic parcel IDs (1 to 400) belong to this network string
+#     matching_parcel_ids <- which(parcel_network_mapping == net)
+#     
+#     # 2. Convert those IDs to the actual column names expected ("ROI_1", "ROI_2", etc.)
+#     expected_col_names <- paste0("ROI_", matching_parcel_ids)
+#     
+#     # 3. FIX: Safely match against the columns that ACTUALLY exist in the data matrix
+#     col_idx <- match(expected_col_names, colnames(roi_ts_combined))
+#     col_idx <- col_idx[!is.na(col_idx)] # Remove any missing/out-of-bounds indices
+#     
+#     # 4. Calculate mean only if columns were safely found
+#     if(length(col_idx) > 0) {
+#       network_ts[, net] <- rowMeans(roi_ts_combined[, col_idx, drop = FALSE], na.rm = TRUE)
+#     } else {
+#       warning(paste("No matching data columns found for network:", net, "in subject", subj[i]))
+#     }
+#   }
+#   
+#   # Save Network time series
+#   write.csv(network_ts, file=paste0("new_HCP_Emotion_",subj[i],".csv"), row.names=FALSE)
+#   cat(i, "th subject (", subj[i], ") done.\n", sep="")
+# }
+
+
+###################################################################################
+# The following is where the main part begins.
+# First, we load the processed data.
+###################################################################################
 yeo17_names <- c(
   "Visual_A",      # 1
   "Visual_B",      # 2
@@ -50,12 +178,15 @@ TT <- rep(165,K)
 list_data <- list()
 for (k in 1:K){
   
-  ts <- read.csv(paste0("./data/HCP_Emotion_",K_idx[k],".csv"),header=TRUE)
+  ts <- read.csv(paste0("./HCP_Emotion_",K_idx[k],".csv"),header=TRUE)
   x_t <- scale(ts)
   list_data$x_t[[k]] <- t(x_t[-c(c(1:5),c(171:176)),])
 }
 
-######################################################################
+
+###################################################################################
+# We apply the benchmark methods.
+###################################################################################
 # Benchmark method: multivar
 data_multivar <- list()
 for (k in 1:K){
@@ -67,8 +198,9 @@ list_benchmark_als <- multiVARSE_benchmark(data_multivar,K,d,type="adaptive")
 
 
 ###################################################################################
+# We apply the proposed estimation method.
+###################################################################################
 # Estimation:
-
 list_opt <- list()
 list_debiased <- list()
 list_identified <- list()
@@ -83,30 +215,41 @@ for (k in 1:K){
   cat(k,"th subject done\n")
 }
 
+# Identification
 # Cross validation for thresholds
-cv_tuning <- multiVARSE_cv2(list_data$x_t,list_debiased,list_opt,K,d,p,TT,
-                            thres_type="hard",nfold=5,grid_eta=10,grid_thres_0=10,grid_thres_k=5)
+cv_tuning <- multiVARSE_cv(list_data$x_t,list_debiased,list_opt,
+                            agg_type = "redescending",
+                            K,d,p,TT,thres_type="hard",nfold=5)
 
 # Identifying common and unique components
 eta_hat <- cv_tuning$eta_hat
 thres_0_hat <- cv_tuning$thres_0_hat
 thres_k_hat <- cv_tuning$thres_k_hat
-list_identified <- multiVARSE_identifier2(list_debiased,eta_hat,thres_0_hat,thres_k_hat,
+list_identified <- multiVARSE_identifier(list_debiased,
+                                          agg_type = "redescending",
+                                          eta_hat,thres_0_hat,thres_k_hat,
                                           thres_type="hard",K,d,p,TT)
 
-######################################################################
+###################################################################################
+# We apply the proposed testing method.
+###################################################################################
 # Hypotheses tests:
-test_null <- multiVARSE_tester(list_data$x_t,list_debiased,list_opt,list_identified,
-                               type="nullity",alpha=0.01,K,d,p,TT)
-test_homo <- multiVARSE_tester(list_data$x_t,list_debiased,list_opt,list_identified,
-                               type="homogeneity",alpha=0.01,K,d,p,TT)
-test_sig <- multiVARSE_tester(list_data$x_t,list_debiased,list_opt,list_identified,
-                              type="significance",alpha=0.01,K,d,p,TT)
+test_sig <- multiVARSE_tester(list_data$x_t,list_debiased,
+                              list_opt,list_identified,
+                              type="significance",alpha=0.05,K,d,p,TT)
+test_homo <- multiVARSE_tester(list_data$x_t,list_debiased,
+                               list_opt,list_identified,
+                               type="homogeneity",alpha=0.05,K,d,p,TT)
+test_null <- multiVARSE_tester(list_data$x_t,list_debiased,
+                               list_opt,list_identified,
+                               type="nullity",alpha=0.05,K,d,p,TT)
 
 
-######################################################################
-
+###################################################################################
+# We begin processing the results for display.
+###################################################################################
 list_result <- list()
+
 # Estimation:
 list_result$mat_com <- t(matrix(list_identified$alpha_0_hat,d,d,byrow=FALSE))
 list_result$mat_uniq <- matrix(0,d,d)
@@ -155,8 +298,8 @@ colnames(list_result$mat_com_als) <- rownames(list_result$mat_com_als) <- yeo17_
 colnames(list_result$mat_uniq_als) <- rownames(list_result$mat_uniq_als) <- yeo17_names
 colnames(list_result$mat_ind_als) <- rownames(list_result$mat_ind_als) <- yeo17_names
 
-######################################################################
 
+# --------------------------------------------------------------- #
 # Common paths:
 round(sum(list_result$mat_com_ls!=0 & list_result$mat_com!=0)/sum(list_result$mat_com!=0),3)
 round(sum(list_result$mat_com_als!=0 & list_result$mat_com!=0)/sum(list_result$mat_com!=0),3)
@@ -187,8 +330,7 @@ summary(as.vector(list_result$mat_ind_als))
 summary(as.vector(list_result$mat_ind))
 summary(as.vector(list_result$mat_ind_filt))
 
-######################################################################
-
+# --------------------------------------------------------------- #
 # BM - Lasso:
 df_common_ls <- {
   mat <- list_result$mat_com_ls
@@ -271,8 +413,9 @@ df_ind_filt$rows <- factor(df_ind_filt$rows, levels = rev(yeo17_names))
 
 
 
-######################################################################
-
+###################################################################################
+# We begin creating Figure 3 in Section 6.2
+###################################################################################
 # common setting:
 red <- rgb(255, 0, 90, maxColorValue = 255)
 green <- rgb(90, 168, 0, maxColorValue = 255)
@@ -355,8 +498,7 @@ no_y_axis <- theme(
 )
 
 
-######################################################################
-
+# --------------------------------------------------------------- #
 # First row plots: Common paths
 plot_common_ls <- ggplot(df_common_ls, aes(y = rows, x = vars, fill = values)) +
   geom_tile() +
@@ -478,7 +620,7 @@ plot_ind_filt <- ggplot(df_ind_filt, aes(y = rows, x = vars, fill = values)) +
   no_y_axis
 
 
-
+# --------------------------------------------------------------- #
 # First row (Common paths) - legend on the right
 row_common <- (plot_common_ls | plot_common_als | plot_common | plot_common_filt) +
   plot_layout(guides = "collect") &
@@ -502,7 +644,9 @@ final_plot <- (row_common / row_unique / row_ind) +
   ) &
   theme(plot.title = element_text(size = 12))
 
-pdf("application.pdf", width = 13, height = 13)
+
+# Figures 3:
+pdf("figure3.pdf", width = 13, height = 13)
 final_plot
 dev.off()
 

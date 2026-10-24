@@ -1,5 +1,9 @@
-multiVARSE_cv <- function(X_t,debias,opt,K,d,p,TT,thres_type,nfold=5,
-                          grid_eta=10,grid_thres_0=10,grid_thres_k=5){
+###################################################################################
+# The following is the cross-validator used in the estimation.
+# The corresponding explanation is included in Remark 3.1 in Section 3.1.
+###################################################################################
+multiVARSE_cv <- function(X_t,debias,opt,agg_type,K,d,p,TT,thres_type,nfold=5,
+                          grid_eta=5,grid_thres_0=10,grid_thres_k=10){
   
   X_t_scaled <- list()
   kappa <- rep(NA,K)
@@ -24,9 +28,13 @@ multiVARSE_cv <- function(X_t,debias,opt,K,d,p,TT,thres_type,nfold=5,
   
   # ------------------------------------------- #
   # Setup:
-  eta_min <- max(mapply(k=1:K,function(k)min(abs(debias[[k]]$beta_tilde))))
-  eta_max <- min(mapply(k=1:K,function(k)max(abs(debias[[k]]$beta_tilde))))
-  eta_grid <- seq(eta_min,eta_max,length=grid_eta)
+  if (agg_type == "redescending"){
+    eta_min <- max(mapply(k=1:K,function(k)min(abs(debias[[k]]$beta_tilde))))
+    eta_max <- min(mapply(k=1:K,function(k)max(abs(debias[[k]]$beta_tilde))))
+    eta_grid <- seq(eta_min,eta_max,length=grid_eta) 
+  }else{
+    eta_grid <- seq(0.05,0.5,length=grid_eta)
+  }
   
   e_0 <- seq(0.1,1,length=grid_thres_0)
   c_k <- seq(0.5,1,length=grid_thres_k)
@@ -79,8 +87,6 @@ multiVARSE_cv <- function(X_t,debias,opt,K,d,p,TT,thres_type,nfold=5,
       }
       vec_YY_test[[k]] <- as.vector(YY_test)
       ZZ_test[[k]] <- bdiag(replicate(d,XX_test,simplify=FALSE))
-      
-      cat(k,"th subject done.\n")
     }
     
     # ------------------------------------------- #
@@ -88,12 +94,12 @@ multiVARSE_cv <- function(X_t,debias,opt,K,d,p,TT,thres_type,nfold=5,
     for (i in 1:grid_eta){
       for (j in 1:grid_thres_0){
         for (m in 1:grid_thres_k){
-          identified_ijm <- multiVARSE_identifier(debiased_train,
+          identified_ijm <- multiVARSE_identifier(debiased_train,agg_type=agg_type,
                                                   eta_grid[i],thres_0_grid[j],thres_k_grid[,m],
                                                   thres_type=thres_type,
                                                   K,d,p,TT_train_vec)
           
-          cat(i,"th eta,",j,"th thres0",m,"th thres k considered.\n")
+          # cat(i,"th eta,",j,"th thres0",m,"th thres k considered.\n")
           tmp_sum_ijm <- 0
           for (k in 1:K){
             TT_test <- length(vec_YY_test[[k]])
@@ -106,6 +112,7 @@ multiVARSE_cv <- function(X_t,debias,opt,K,d,p,TT,thres_type,nfold=5,
     list_block_error[[l]] <- loss_eta_thres
     
     cat(l,"th fold done.\n")
+    cat("# ------------------------------------------- #\n")
   }
   
   # ------------------------------------------- #
